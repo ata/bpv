@@ -1,6 +1,7 @@
 import locale
 import numpy as np
 import math
+import csv
 locale.setlocale(locale.LC_ALL, '')
 
 pinjaman = np.float128(540000000.0)
@@ -23,7 +24,8 @@ sisa_pokok = pinjaman
 total_pembayaran = 0
 total_bunga = 0
 total_pokok = 0
-import csv
+
+tabungan = 0.0
 
 with open('cicilan.csv', 'w') as csvfile:
     writer = csv.writer(csvfile)
@@ -46,7 +48,6 @@ with open('cicilan.csv', 'w') as csvfile:
         while pelunasan > 0.25 * sisa_pokok and pengali >= 3:
             pengali = pengali - 1
             pelunasan = angsuran * pengali
-        # pelunasan = tambahan_pokok
 
         if a % 6 == 0 and pelunasan < 0.25 * sisa_pokok and a > m_f and a >= bulan_dipercepat:
             cicilan = cicilan + pelunasan
