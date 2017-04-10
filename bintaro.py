@@ -5,7 +5,7 @@ from terminaltables import AsciiTable
 class Cicilan:
     def __init__(self, bulan, jumlah_pembayaran, jumlah_pokok, jumlah_bunga,
                  sisa_pokok, total_pembayaran, total_pokok, total_bunga,
-                 pembayaran_extra=0, target_pembayaran=0):
+                 pembayaran_extra=0, target_pembayaran=0, tabungan=0):
         self.bulan = bulan
         self.jumlah_pembayaran = jumlah_pembayaran
         self.jumlah_pokok = jumlah_pokok
@@ -16,6 +16,7 @@ class Cicilan:
         self.total_bunga = total_bunga
         self.pembayaran_extra = pembayaran_extra
         self.target_pembayaran = target_pembayaran
+        self.tabungan = tabungan
 
 
 class Loan:
@@ -61,19 +62,17 @@ class Loan:
                               total_pokok=self.total_pokok,
                               total_bunga=self.total_bunga,
                               pembayaran_extra=self.get_cicilan_extra(bulan),
-                              target_pembayaran=self.get_target_bulanan(bulan))
+                              target_pembayaran=self.get_target_bulanan(bulan),
+                              tabungan=self.tabungan)
             self.cicilans.append(cicilan)
 
             if self.sisa_pokok <= 0:
-                # self.total_pembayaran += self.sisa_pokok
-                # self.total_pokok += self.sisa_pokok
                 break
 
 
     def get_pembayaran(self, bulan):
         pembayaran = self.cicilan_anuitas
-        if bulan % 6 != 0:
-            self.tabungan += self.get_cicilan_extra(bulan)
+        self.tabungan += self.get_cicilan_extra(bulan)
 
         if bulan % 6 == 0 and self.tabungan < 0.25 * self.sisa_pokok and self.tabungan > 3 * self.cicilan_anuitas:
             pembayaran = pembayaran + self.tabungan
@@ -100,19 +99,28 @@ class Renderer:
     def render(self):
         _ = self.currency
         table_data = [
-            ['Bulan', 'Angsuran', 'Pokok', 'Bunga', 'Sisa Pokok', 'Total Angsuran', 'Total Pokok', 'Total Bunga'],
+            ['Bulan', 'Angsuran', 'Pokok', 'Bunga', 'Sisa Pokok','Target', 'Extra', 'Tabungan'],
         ]
         for c in self.loan.cicilans:
-            table_data.append([c.bulan, _(c.jumlah_pembayaran), _(c.jumlah_pokok), _(c.jumlah_bunga), _(c.sisa_pokok), _(c.total_pembayaran), _(c.total_pokok), _(c.total_bunga)])
+            table_data.append([c.bulan, _(c.jumlah_pembayaran), _(c.jumlah_pokok), _(c.jumlah_bunga), _(c.sisa_pokok), _(c.target_pembayaran), _(c.pembayaran_extra), _(c.tabungan)])
 
         table = AsciiTable(table_data)
         for j in range(0, 9):
             table.justify_columns[j] = 'right'
         print(table.table)
 
-        print('Total Pembayaran:', _(loan.total_pembayaran))
-        print('Total Pokok:', _(loan.total_pokok))
-        print('Total Bunga:', _(loan.total_bunga))
+        table_data = [
+            ['Pinjaman', _(loan.pinjaman)],
+            ['Tenor', '%s bulan' % loan.tenor],
+            ['Bunga', '%s percent' % (loan.bunga * 100)],
+            ['Total Pembayaran', _(loan.total_pembayaran)],
+            ['Total Pokok', _(loan.total_pokok)],
+            ['Total Bunga', _(loan.total_bunga)],
+            ['Accerasi', '%s percent' % (loan.accel * 100)],
+        ]
+        table = AsciiTable(table_data)
+        table.justify_columns[1] = 'right'
+        print(table.table)
 
     def currency(self, number):
         return locale.currency(number, grouping=True)
