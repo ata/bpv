@@ -1,6 +1,7 @@
 import locale
 import math
 from terminaltables import AsciiTable
+import csv
 
 class Cicilan:
     def __init__(self, bulan, jumlah_pembayaran, jumlah_pokok, jumlah_bunga,
@@ -25,7 +26,7 @@ class Loan:
         self.bunga = bunga / 100
         self.tenor = tenor
         self.target_bulanan = target_bulanan
-        self.accel = accel
+        self.accel = accel / 100
         self.sisa_pokok = self.pinjaman
         self.total_pembayaran = 0
         self.total_pokok = 0
@@ -35,7 +36,7 @@ class Loan:
         self.tabungan = 0
 
     def get_cicilan_anuitas(self):
-        return self.pinjaman * (self.bunga/12) * 1 / (1 - 1/ (1 + (self.bunga/12))**self.tenor )
+        return self.sisa_pokok * (self.bunga/12) * 1 / (1 - 1/ (1 + (self.bunga/12))**self.tenor )
 
     def populate_cicilan(self):
         for bulan in range(1, self.tenor + 1):
@@ -74,9 +75,13 @@ class Loan:
         pembayaran = self.cicilan_anuitas
         self.tabungan += self.get_cicilan_extra(bulan)
 
-        if bulan % 6 == 0 and self.tabungan < 0.25 * self.sisa_pokok and self.tabungan > 3 * self.cicilan_anuitas:
+        if bulan % 6 == 0 and self.tabungan > 3 * self.cicilan_anuitas:
             pembayaran = pembayaran + self.tabungan
-            self.tabungan = 0
+            if pembayaran > 0.25 * self.sisa_pokok:
+                pembayaran = self.sisa_pokok * 0.25
+
+            self.tabungan = self.tabungan - (pembayaran - self.cicilan_anuitas)
+            # self.cicilan_anuitas = self.get_cicilan_anuitas()
 
         return pembayaran
 
@@ -84,17 +89,15 @@ class Loan:
         return self.get_target_bulanan(bulan) - self.cicilan_anuitas
 
     def get_target_bulanan(self, bulan):
-        current_salary = self.target_bulanan * 2.5
-        next_salary = current_salary * (1 + self.accel) ** math.floor(bulan/12)
-
-        return next_salary * 0.4
+        return self.target_bulanan * (1 + self.accel) ** math.floor(bulan/12)
 
 
 class Renderer:
     def __init__(self, loan):
         self.loan = loan
+        self.loan.populate_cicilan()
+
         locale.setlocale(locale.LC_ALL, '')
-        loan.populate_cicilan()
 
     def render(self):
         _ = self.currency
@@ -110,23 +113,41 @@ class Renderer:
         print(table.table)
 
         table_data = [
-            ['Pinjaman', _(loan.pinjaman)],
-            ['Tenor', '%s bulan' % loan.tenor],
-            ['Bunga', '%s percent' % (loan.bunga * 100)],
-            ['Total Pembayaran', _(loan.total_pembayaran)],
-            ['Total Pokok', _(loan.total_pokok)],
-            ['Total Bunga', _(loan.total_bunga)],
-            ['Accerasi', '%s percent' % (loan.accel * 100)],
+            ['Pinjaman', _(self.loan.pinjaman)],
+            ['Tenor', '%s bulan' % self.loan.tenor],
+            ['Bunga', '%s percent' % (self.loan.bunga * 100)],
+            ['Total Pembayaran', _(self.loan.total_pembayaran)],
+            ['Total Pokok', _(self.loan.total_pokok)],
+            ['Total Bunga', _(self.loan.total_bunga)],
+            ['Accerasi', '%s percent' % (self.loan.accel * 100)],
         ]
         table = AsciiTable(table_data)
         table.justify_columns[1] = 'right'
         print(table.table)
 
+    def save_csv(self, path):
+        with open(path, 'w') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(
+                ['Bulan', 'Angsuran', 'Pokok', 'Bunga', 'Sisa Pokok','Target', 'Extra', 'Tabungan'],
+            )
+            for c in self.loan.cicilans:
+                writer.writerow([c.bulan, c.jumlah_pembayaran, c.jumlah_pokok, c.jumlah_bunga, c.sisa_pokok, c.target_pembayaran, c.pembayaran_extra, c.tabungan])
+
+            writer.writerow(['Pinjaman', self.loan.pinjaman])
+            writer.writerow(['Tenor', '%s bulan' % self.loan.tenor])
+            writer.writerow(['Bunga', '%s percent' % (self.loan.bunga * 100)])
+            writer.writerow(['Total Pembayaran', self.loan.total_pembayaran])
+            writer.writerow(['Total Pokok', self.loan.total_pokok])
+            writer.writerow(['Total Bunga', self.loan.total_bunga])
+            writer.writerow(['Accerasi', '%s percent' % (self.loan.accel * 100)])
+
     def currency(self, number):
         return locale.currency(number, grouping=True)
 
 
-loan = Loan(540000000.0, 9.25, 180, 8000000.0, 0.15)
+loan = Loan(540000000.0, 9.25, 240, 7000000.0, 15)
 renderer = Renderer(loan)
 print(renderer.render())
+renderer.save_csv('cicilan.csv')
 
